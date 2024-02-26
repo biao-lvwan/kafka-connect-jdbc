@@ -16,6 +16,7 @@
 package io.confluent.connect.jdbc.sink;
 
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 import java.sql.Connection;
@@ -65,7 +66,8 @@ public class JdbcDbWriter {
     try {
       final Map<TableId, BufferedRecords> bufferByTable = new HashMap<>();
       for (SinkRecord record : records) {
-        final TableId tableId = destinationTable(record.topic());
+        final TableId tableId = destinationTable(record.headers());
+        //final TableId tableId = destinationTable(record.topic());
         BufferedRecords buffer = bufferByTable.get(tableId);
         if (buffer == null) {
           buffer = new BufferedRecords(config, tableId, dbDialect, dbStructure, connection);
@@ -107,4 +109,18 @@ public class JdbcDbWriter {
     }
     return dbDialect.parseTableIdentifier(tableName);
   }
+
+  TableId destinationTable(Headers headers) {
+    //需要重新定义表结构
+    final String tableName = String.valueOf(headers.lastWithName("__table").value());
+    if (tableName.isEmpty()) {
+      throw new ConnectException(String.format(
+              "Destination table name for topic '%s' is empty using the format string '%s'",
+              headers,
+              config.tableNameFormat
+      ));
+    }
+    return dbDialect.parseTableIdentifier(tableName);
+  }
+
 }
